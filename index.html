@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOCUCONTROL | Sistema de Control Documental Inteligente</title>
+  <meta name="description" content="Sistema inteligente de control y gestión documental con alertas en tiempo real">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { 'inter': ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #06060f; color: #e2e8f0; min-height: 100vh; overflow-x: hidden; }
+
+    /* === ANIMATED BACKGROUND === */
+    .bg-mesh { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: #06060f; }
+    .bg-mesh .orb {
+      position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.25;
+      animation: orbFloat 18s ease-in-out infinite;
+    }
+    .bg-mesh .orb-1 { width: 700px; height: 700px; background: #7c3aed; top: -15%; left: -10%; }
+    .bg-mesh .orb-2 { width: 550px; height: 550px; background: #06b6d4; bottom: -20%; right: -5%; animation-delay: -6s; }
+    .bg-mesh .orb-3 { width: 400px; height: 400px; background: #ec4899; top: 50%; left: 40%; animation-delay: -12s; opacity: 0.15; }
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(80px, -60px) scale(1.1); }
+      66% { transform: translate(-60px, 80px) scale(0.9); }
+    }
+
+    /* === GLASSMORPHISM === */
+    .glass { background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.07); }
+    .glass-light { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+    .glass-card { background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; transition: all 0.3s cubic-bezier(.4,0,.2,1); }
+    .glass-card:hover { border-color: rgba(6,182,212,0.2); box-shadow: 0 0 30px rgba(6,182,212,0.08); transform: translateY(-2px); }
+
+    /* === SCROLLBAR === */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.5); }
+
+    /* === SIDEBAR === */
+    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 260px; z-index: 30; padding: 24px 16px; display: flex; flex-direction: column; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; cursor: pointer; transition: all 0.25s; color: #94a3b8; font-weight: 500; font-size: 14px; }
+    .nav-item:hover { background: rgba(6,182,212,0.08); color: #e2e8f0; }
+    .nav-item.active { background: rgba(6,182,212,0.12); color: #22d3ee; border: 1px solid rgba(6,182,212,0.2); box-shadow: 0 0 20px rgba(6,182,212,0.1); }
+
+    /* === MAIN === */
+    .main-content { margin-left: 260px; min-height: 100vh; position: relative; z-index: 10; }
+    .topbar { position: sticky; top: 0; z-index: 20; padding: 16px 32px; display: flex; align-items: center; gap: 16px; }
+
+    /* === NOTIFICATION BELL === */
+    .bell-btn { position: relative; width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; }
+    .bell-btn:hover { background: rgba(6,182,212,0.15); box-shadow: 0 0 25px rgba(6,182,212,0.15); }
+    .bell-badge {
+      position: absolute; top: -4px; right: -4px; min-width: 24px; height: 24px; border-radius: 12px;
+      background: linear-gradient(135deg, #ef4444, #f97316); color: white; font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; padding: 0 6px;
+      animation: badgePulse 2s ease-in-out infinite; box-shadow: 0 0 12px rgba(239,68,68,0.5);
+    }
+    @keyframes badgePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+    /* === NOTIFICATION PANEL === */
+    .notif-panel { position: fixed; top: 0; right: -440px; width: 420px; height: 100vh; z-index: 50; transition: right 0.4s cubic-bezier(.4,0,.2,1); padding: 24px; overflow-y: auto; }
+    .notif-panel.open { right: 0; }
+    .notif-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 45; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .notif-overlay.open { opacity: 1; pointer-events: all; }
+
+    /* === STAT CARD === */
+    .stat-card { border-radius: 16px; padding: 18px 20px; flex: 1; min-width: 0; transition: all 0.3s; }
+    .stat-card:hover { transform: translateY(-3px); }
+    .stat-number { font-size: 32px; font-weight: 800; line-height: 1; }
+
+    /* === DOC ROW === */
+    .doc-row { display: grid; grid-template-columns: 8px 1.5fr 1fr 100px 100px 90px; align-items: center; gap: 16px; padding: 14px 20px; border-radius: 10px; transition: all 0.2s; cursor: default; }
+    .doc-row:hover { background: rgba(255,255,255,0.03); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-expired { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.5); }
+    .status-warning { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.5); }
+    .status-valid { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.5); }
+
+    /* === MODAL === */
+    .modal-overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-box { border-radius: 20px; padding: 32px; width: 90%; max-width: 440px; transform: scale(0.95) translateY(10px); transition: transform 0.3s; }
+    .modal-overlay.open .modal-box { transform: scale(1) translateY(0); }
+
+    /* === TOAST === */
+    .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 70; display: flex; flex-direction: column; gap: 8px; }
+    .toast { padding: 14px 24px; border-radius: 12px; font-size: 14px; font-weight: 500; transform: translateX(120%); opacity: 0; transition: all 0.4s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; gap: 10px; }
+    .toast.show { transform: translateX(0); opacity: 1; }
+    .toast-success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: #4ade80; }
+    .toast-info { background: rgba(6,182,212,0.15); border: 1px solid rgba(6,182,212,0.3); color: #22d3ee; }
+    .toast-warning { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: #fbbf24; }
+    .toast-error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #f87171; }
+
+    /* === ENTITY CARD === */
+    .entity-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; cursor: pointer; border-radius: 14px; transition: all 0.25s; }
+    .entity-header:hover { background: rgba(255,255,255,0.03); }
+    .entity-docs { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(.4,0,.2,1); }
+    .entity-docs.expanded { max-height: 2000px; }
+
+    /* === SEARCH === */
+    .search-box { position: relative; flex: 1; max-width: 420px; }
+    .search-box input { width: 100%; padding: 12px 16px 12px 44px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(15,23,42,0.6); backdrop-filter: blur(8px); color: #e2e8f0; font-size: 14px; outline: none; transition: all 0.3s; }
+    .search-box input:focus { border-color: rgba(6,182,212,0.4); box-shadow: 0 0 20px rgba(6,182,212,0.1); }
+    .search-box .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #64748b; }
+
+    /* === BTN === */
+    .btn-primary { background: linear-gradient(135deg, #0891b2, #06b6d4); color: white; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 13px; border: none; cursor: pointer; transition: all 0.25s; }
+    .btn-primary:hover { box-shadow: 0 0 20px rgba(6,182,212,0.3); transform: translateY(-1px); }
+    .btn-ghost { background: rgba(255,255,255,0.05); color: #94a3b8; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.25s; }
+    .btn-ghost:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; border-color: rgba(255,255,255,0.15); }
+    .btn-renew { background: rgba(6,182,212,0.1); color: #22d3ee; border: 1px solid rgba(6,182,212,0.2); padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.25s; }
+    .btn-renew:hover { background: rgba(6,182,212,0.2); box-shadow: 0 0 12px rgba(6,182,212,0.15); }
+    .btn-config { background: none; border: none; color: #64748b; cursor: pointer; padding: 4px; border-radius: 6px; transition: all 0.2s; }
+    .btn-config:hover { color: #f59e0b; background: rgba(245,158,11,0.1); }
+
+    /* === ADD BTN === */
+    .btn-add { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border: 2px dashed rgba(255,255,255,0.1); border-radius: 12px; color: #64748b; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.3s; background: transparent; width: 100%; justify-content: center; }
+    .btn-add:hover { border-color: rgba(6,182,212,0.3); color: #22d3ee; background: rgba(6,182,212,0.05); }
+    .btn-add-doc { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px dashed rgba(255,255,255,0.08); border-radius: 8px; color: #475569; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.3s; background: transparent; }
+    .btn-add-doc:hover { border-color: rgba(139,92,246,0.4); color: #a78bfa; background: rgba(139,92,246,0.05); }
+    .btn-del-doc { background: none; border: none; color: #475569; cursor: pointer; padding: 4px; border-radius: 6px; transition: all 0.2s; flex-shrink: 0; }
+    .btn-del-doc:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+    .btn-del-entity { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.12); color: #f87171; padding: 5px 10px; border-radius: 7px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-del-entity:hover { background: rgba(239,68,68,0.15); box-shadow: 0 0 10px rgba(239,68,68,0.15); }
+    /* === SIDEBAR NEW-RESOURCE BTNS === */
+    .nav-sub-btn { display: flex; align-items: center; gap: 8px; padding: 7px 14px 7px 38px; border-radius: 8px; cursor: pointer; transition: all 0.2s; color: #64748b; font-size: 12px; font-weight: 500; width: 100%; border: none; background: transparent; text-align: left; }
+    .nav-sub-btn:hover { background: rgba(255,255,255,0.04); color: #94a3b8; }
+    /* === REVIEW BUTTON === */
+    .btn-review { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px 16px; border-radius: 14px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all 0.3s; background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(239,68,68,0.18)); border: 1px solid rgba(245,158,11,0.25); color: #fbbf24; position: relative; overflow: hidden; }
+    .btn-review::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(239,68,68,0.08)); transform: scaleX(0); transform-origin: left; transition: transform 0.4s; }
+    .btn-review:hover::before { transform: scaleX(1); }
+    .btn-review:hover { box-shadow: 0 0 25px rgba(245,158,11,0.2); transform: translateY(-2px); border-color: rgba(245,158,11,0.4); }
+    /* === REVIEW PANEL === */
+    .review-panel { position: fixed; top: 0; left: -500px; width: 480px; height: 100vh; z-index: 50; transition: left 0.4s cubic-bezier(.4,0,.2,1); padding: 24px; overflow-y: auto; }
+    .review-panel.open { left: 260px; }
+
+    /* === MISC === */
+    .fade-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .logo-glow { text-shadow: 0 0 20px rgba(6,182,212,0.4); }
+    .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 8px 0; }
+    /* === ELEVAR BRAND === */
+    .elevar-brand { border-radius: 14px; padding: 12px 14px; background: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(124,58,237,0.08)); border: 1px solid rgba(6,182,212,0.15); margin-bottom: 8px; }
+    .elevar-name { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; background: linear-gradient(135deg, #22d3ee, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.1; }
+    .elevar-sub { font-size: 9.5px; color: #475569; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 1px; }
+    /* === SITE FOOTER === */
+    .site-footer { margin-left: 260px; position: relative; z-index: 10; border-top: 1px solid rgba(255,255,255,0.05); padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    .footer-brand { font-size: 13px; font-weight: 700; background: linear-gradient(135deg, #22d3ee, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .footer-info { font-size: 11px; color: #475569; }
+    .footer-tag { font-size: 10px; color: #334155; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 3px 10px; border-radius: 20px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+    input[type="date"], input[type="number"], input[type="text"] { background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; padding: 10px 14px; border-radius: 10px; font-size: 14px; outline: none; transition: border-color 0.3s; font-family: 'Inter', sans-serif; }
+    input[type="date"]:focus, input[type="number"]:focus, input[type="text"]:focus { border-color: rgba(6,182,212,0.4); }
+    select { background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; padding: 10px 14px; border-radius: 10px; font-size: 14px; outline: none; font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body>
+  <!-- ANIMATED BACKGROUND -->
+  <div class="bg-mesh"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+
+  <!-- SIDEBAR NAVIGATION -->
+  <aside class="sidebar glass" id="sidebar"></aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    <header class="topbar glass" id="topbar"></header>
+    <main class="p-8" id="mainContent"></main>
+  </div>
+  <!-- SITE FOOTER -->
+  <footer class="site-footer glass-light">
+    <div>
+      <div class="footer-brand">Elevar Formación Técnica</div>
+      <div class="footer-info mt-0.5">Prof. Leonardo Morales &nbsp;·&nbsp; &copy; 2026 Todos los derechos reservados</div>
+    </div>
+    <div class="footer-tag">Plataforma única para alumnos</div>
+  </footer>
+
+  <!-- NOTIFICATION OVERLAY & PANEL -->
+  <div class="notif-overlay" id="notifOverlay"></div>
+  <div class="notif-panel glass" id="notifPanel"></div>
+
+  <!-- REVIEW PANEL (próximos a vencer) -->
+  <div class="review-panel glass" id="reviewPanel"></div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-box glass" id="modalBox"></div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+// =============================================
+//  DATOS INICIALES
+// =============================================
+const STORAGE_KEY = 'docucontrol_v2_data';
+
+const RECURSOS_INICIALES = {
+  empleados: [
+    {
+      nombre: "Carlos Méndez", identificador: "30.456.789",
+      documentos: [
+        { nombre: "DNI", vencimiento: "2027-03-15", diasAviso: 60 },
+        { nombre: "ART", vencimiento: "2026-04-18", diasAviso: 30 },
+        { nombre: "Examen Psicofísico", vencimiento: "2026-03-01", diasAviso: 30 },
+        { nombre: "Entrega de EPP", vencimiento: "2026-07-15", diasAviso: 15 },
+        { nombre: "Capacitación de Seguridad", vencimiento: "2026-05-02", diasAviso: 45 },
+        { nombre: "Seguro de Vida", vencimiento: "2026-12-31", diasAviso: 60 }
+      ]
+    },
+    {
+      nombre: "María López", identificador: "28.123.456",
+      documentos: [
+        { nombre: "DNI", vencimiento: "2028-01-20", diasAviso: 60 },
+        { nombre: "ART", vencimiento: "2026-04-10", diasAviso: 30 },
+        { nombre: "Examen Psicofísico", vencimiento: "2026-06-30", diasAviso: 30 },
+        { nombre: "Entrega de EPP", vencimiento: "2026-02-15", diasAviso: 15 },
+        { nombre: "Capacitación de Seguridad", vencimiento: "2026-09-01", diasAviso: 45 },
+        { nombre: "Seguro de Vida", vencimiento: "2026-11-15", diasAviso: 60 }
+      ]
+    },
+    {
+      nombre: "Juan Rodríguez", identificador: "35.789.012",
+      documentos: [
+        { nombre: "DNI", vencimiento: "2026-08-10", diasAviso: 60 },
+        { nombre: "ART", vencimiento: "2026-03-28", diasAviso: 30 },
+        { nombre: "Examen Psicofísico", vencimiento: "2026-04-25", diasAviso: 20 },
+        { nombre: "Entrega de EPP", vencimiento: "2026-10-01", diasAviso: 15 },
+        { nombre: "Capacitación de Seguridad", vencimiento: "2026-03-15", diasAviso: 45 },
+        { nombre: "Seguro de Vida", vencimiento: "2027-01-01", diasAviso: 60 }
+      ]
+    },
+    {
+      nombre: "Ana García", identificador: "32.654.321",
+      documentos: [
+        { nombre: "DNI", vencimiento: "2029-05-01", diasAviso: 60 },
+        { nombre: "ART", vencimiento: "2026-05-20", diasAviso: 30 },
+        { nombre: "Examen Psicofísico", vencimiento: "2026-04-12", diasAviso: 15 },
+        { nombre: "Entrega de EPP", vencimiento: "2026-08-30", diasAviso: 15 },
+        { nombre: "Capacitación de Seguridad", vencimiento: "2026-06-15", diasAviso: 45 },
+        { nombre: "Seguro de Vida", vencimiento: "2026-04-08", diasAviso: 30 }
+      ]
+    },
+    {
+      nombre: "Pedro Sánchez", identificador: "27.890.543",
+      documentos: [
+        { nombre: "DNI", vencimiento: "2027-11-30", diasAviso: 60 },
+        { nombre: "ART", vencimiento: "2026-07-01", diasAviso: 30 },
+        { nombre: "Examen Psicofísico", vencimiento: "2026-09-15", diasAviso: 30 },
+        { nombre: "Entrega de EPP", vencimiento: "2026-03-20", diasAviso: 15 },
+        { nombre: "Capacitación de Seguridad", vencimiento: "2026-12-01", diasAviso: 45 },
+        { nombre: "Seguro de Vida", vencimiento: "2027-06-30", diasAviso: 60 }
+      ]
+    }
+  ],
+  vehiculos: [
+    {
+      nombre: "Ford Ranger XLT", identificador: "AB 123 CD",
+      documentos: [
+        { nombre: "Cédula Verde", vencimiento: "2028-06-01", diasAviso: 60 },
+        { nombre: "Cédula Azul", vencimiento: "2027-06-01", diasAviso: 60 },
+        { nombre: "VTV / RTO", vencimiento: "2026-04-15", diasAviso: 30 },
+        { nombre: "Póliza de Seguro", vencimiento: "2026-05-01", diasAviso: 30 },
+        { nombre: "Comprobante de Pago Patente", vencimiento: "2026-06-30", diasAviso: 15 },
+        { nombre: "LINTI", vencimiento: "2026-03-10", diasAviso: 30 }
+      ]
+    },
+    {
+      nombre: "Toyota Hilux SR", identificador: "AC 456 EF",
+      documentos: [
+        { nombre: "Cédula Verde", vencimiento: "2029-01-15", diasAviso: 60 },
+        { nombre: "VTV / RTO", vencimiento: "2026-08-20", diasAviso: 30 },
+        { nombre: "Póliza de Seguro", vencimiento: "2026-02-28", diasAviso: 30 },
+        { nombre: "Comprobante de Pago Patente", vencimiento: "2026-04-30", diasAviso: 15 },
+        { nombre: "LINTI", vencimiento: "2026-07-01", diasAviso: 30 }
+      ]
+    },
+    {
+      nombre: "Iveco Daily 70C17", identificador: "AD 789 GH",
+      documentos: [
+        { nombre: "Cédula Verde", vencimiento: "2027-09-01", diasAviso: 60 },
+        { nombre: "VTV / RTO", vencimiento: "2026-04-22", diasAviso: 30 },
+        { nombre: "Póliza de Seguro", vencimiento: "2026-06-15", diasAviso: 30 },
+        { nombre: "Comprobante de Pago Patente", vencimiento: "2026-03-31", diasAviso: 15 },
+        { nombre: "LINTI", vencimiento: "2026-10-01", diasAviso: 30 }
+      ]
+    }
+  ],
+  maquinaria: [
+    {
+      nombre: "Grúa Liebherr LTM 1100", identificador: "MAQ-001",
+      documentos: [
+        { nombre: "R.U.T.A.", vencimiento: "2026-04-20", diasAviso: 30 },
+        { nombre: "Permiso de Carga Peligrosa", vencimiento: "2026-03-25", diasAviso: 45 },
+        { nombre: "Cert. Pesos y Dimensiones", vencimiento: "2026-09-01", diasAviso: 30 },
+        { nombre: "Carnet de Maquinista", vencimiento: "2026-06-15", diasAviso: 30 }
+      ]
+    },
+    {
+      nombre: "Retroexcavadora CAT 420F", identificador: "MAQ-002",
+      documentos: [
+        { nombre: "R.U.T.A.", vencimiento: "2026-07-01", diasAviso: 30 },
+        { nombre: "Permiso de Carga Peligrosa", vencimiento: "2026-05-10", diasAviso: 45 },
+        { nombre: "Cert. Pesos y Dimensiones", vencimiento: "2026-02-01", diasAviso: 30 },
+        { nombre: "Carnet de Maquinista", vencimiento: "2026-04-09", diasAviso: 15 }
+      ]
+    },
+    {
+      nombre: "Autoelevador Toyota 8FD25", identificador: "MAQ-003",
+      documentos: [
+        { nombre: "R.U.T.A.", vencimiento: "2026-03-05", diasAviso: 30 },
+        { nombre: "Cert. Pesos y Dimensiones", vencimiento: "2026-11-30", diasAviso: 30 },
+        { nombre: "Carnet de Maquinista", vencimiento: "2026-08-01", diasAviso: 30 }
+      ]
+    }
+  ]
+};
+
+// =============================================
+//  STATE
+// =============================================
+let data = null;
+let activeCategory = 'global';
+let searchQuery = '';
+let expandedEntities = {};
+let currentModal = null;
+
+const CAT_META = {
+  empleados:  { label: 'Empleados', icon: 'users', idLabel: 'DNI', color: '#8b5cf6' },
+  vehiculos:  { label: 'Vehículos', icon: 'truck', idLabel: 'Patente', color: '#06b6d4' },
+  maquinaria: { label: 'Maquinaria Especial', icon: 'hard-hat', idLabel: 'ID', color: '#f59e0b' }
+};
+
+// =============================================
+//  PERSISTENCE
+// =============================================
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadData() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try { data = JSON.parse(saved); return; } catch(e) { /* fallthrough */ }
+  }
+  data = JSON.parse(JSON.stringify(RECURSOS_INICIALES));
+  saveData();
+}
+
+// =============================================
+//  CALCULATIONS
+// =============================================
+function today() {
+  const d = new Date(); d.setHours(0,0,0,0); return d;
+}
+
+function daysDiff(dateStr) {
+  const target = new Date(dateStr + 'T00:00:00');
+  const diff = target - today();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function docStatus(doc) {
+  const days = daysDiff(doc.vencimiento);
+  if (days < 0) return 'expired';
+  if (days <= doc.diasAviso) return 'warning';
+  return 'valid';
+}
+
+function getStats() {
+  let total = 0, valid = 0, warning = 0, expired = 0;
+  const cats = activeCategory === 'global' ? Object.keys(data) : [activeCategory];
+  cats.forEach(cat => {
+    if (!data[cat]) return;
+    data[cat].forEach(entity => {
+      entity.documentos.forEach(doc => {
+        total++;
+        const s = docStatus(doc);
+        if (s === 'valid') valid++;
+        else if (s === 'warning') warning++;
+        else expired++;
+      });
+    });
+  });
+  return { total, valid, warning, expired };
+}
+
+function getAlerts() {
+  const alerts = [];
+  Object.keys(data).forEach(cat => {
+    data[cat].forEach((entity, ei) => {
+      entity.documentos.forEach((doc, di) => {
+        const s = docStatus(doc);
+        if (s !== 'valid') {
+          alerts.push({ cat, entityIdx: ei, docIdx: di, entityName: entity.nombre, entityId: entity.identificador, docName: doc.nombre, vencimiento: doc.vencimiento, days: daysDiff(doc.vencimiento), status: s });
+        }
+      });
+    });
+  });
+  alerts.sort((a, b) => a.days - b.days);
+  return alerts;
+}
+
+function formatDate(d) {
+  const parts = d.split('-');
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function formatDays(d) {
+  if (d < 0) return `${Math.abs(d)}d vencido`;
+  if (d === 0) return 'Hoy vence';
+  return `${d}d restantes`;
+}
+
+// =============================================
+//  RENDERING - SIDEBAR
+// =============================================
+function renderSidebar() {
+  const sb = document.getElementById('sidebar');
+  sb.innerHTML = `
+    <!-- ELEVAR BRAND -->
+    <div class="elevar-brand mb-4 px-1">
+      <div class="flex items-center gap-2 mb-1">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="graduation-cap" class="w-4 h-4 text-white"></i>
+        </div>
+        <div>
+          <div class="elevar-name">Elevar</div>
+          <div class="elevar-sub">Formación Técnica</div>
+        </div>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,0.06);margin:8px 0"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-lg bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="shield-check" class="w-3 h-3 text-cyan-400"></i>
+        </div>
+        <div>
+          <span class="text-[11px] font-bold text-slate-300 tracking-tight">DOCUCONTROL</span>
+          <span class="text-[10px] text-slate-600 ml-1">· Control Documental</span>
+        </div>
+      </div>
+    </div>
+    <nav class="flex flex-col gap-0.5 flex-1 overflow-y-auto">
+      <div class="text-[10px] text-slate-600 font-semibold tracking-widest uppercase px-4 mb-2">Navegación</div>
+      <div class="nav-item ${activeCategory==='global'?'active':''}" data-action="nav" data-cat="global">
+        <i data-lucide="layout-dashboard" class="w-[18px] h-[18px] flex-shrink-0"></i> Panel Global
+      </div>
+
+      <!-- EMPLEADOS -->
+      <div class="nav-item ${activeCategory==='empleados'?'active':''}" data-action="nav" data-cat="empleados">
+        <i data-lucide="users" class="w-[18px] h-[18px] flex-shrink-0"></i> Empleados
+        <span class="ml-auto text-xs bg-violet-500/20 text-violet-400 px-2 py-0.5 rounded-full">${data.empleados.length}</span>
+      </div>
+      <button class="nav-sub-btn" data-action="addEntity" data-cat="empleados">
+        <i data-lucide="user-plus" class="w-3.5 h-3.5 text-violet-500 flex-shrink-0"></i>
+        <span>Nuevo Empleado</span>
+      </button>
+
+      <!-- VEHÍCULOS -->
+      <div class="nav-item ${activeCategory==='vehiculos'?'active':''}" data-action="nav" data-cat="vehiculos">
+        <i data-lucide="truck" class="w-[18px] h-[18px] flex-shrink-0"></i> Vehículos
+        <span class="ml-auto text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">${data.vehiculos.length}</span>
+      </div>
+      <button class="nav-sub-btn" data-action="addEntity" data-cat="vehiculos">
+        <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-cyan-500 flex-shrink-0"></i>
+        <span>Nuevo Vehículo</span>
+      </button>
+
+      <!-- MAQUINARIA -->
+      <div class="nav-item ${activeCategory==='maquinaria'?'active':''}" data-action="nav" data-cat="maquinaria">
+        <i data-lucide="hard-hat" class="w-[18px] h-[18px] flex-shrink-0"></i> Maquinaria
+        <span class="ml-auto text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">${data.maquinaria.length}</span>
+      </div>
+      <button class="nav-sub-btn" data-action="addEntity" data-cat="maquinaria">
+        <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-amber-500 flex-shrink-0"></i>
+        <span>Nueva Maquinaria</span>
+      </button>
+    </nav>
+
+    <div class="divider my-3"></div>
+
+    <!-- BIG REVIEW BUTTON -->
+    <div class="px-2 mb-3">
+      <button class="btn-review" data-action="openReview">
+        <i data-lucide="clock" class="w-5 h-5 flex-shrink-0 pointer-events-none"></i>
+        <span style="line-height:1.2">Revisar Docs<br><span style="font-weight:400;font-size:11px;opacity:0.8">Próximos a Vencer</span></span>
+      </button>
+    </div>
+
+    <div class="px-4 py-1">
+      <button class="btn-ghost w-full text-center" data-action="reset">
+        <i data-lucide="rotate-ccw" class="w-3 h-3 inline mr-1"></i> Restaurar Datos
+      </button>
+    </div>
+    <div class="px-4 text-[10px] text-slate-600 text-center mt-2">v1.0 · ${new Date().getFullYear()}</div>
+  `;
+}
+
+// =============================================
+//  RENDERING - TOPBAR
+// =============================================
+function renderTopbar() {
+  const alerts = getAlerts();
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
+  document.getElementById('topbar').innerHTML = `
+    <div class="flex-shrink-0">
+      <h2 class="text-lg font-bold text-white">${activeCategory === 'global' ? 'Panel Global' : CAT_META[activeCategory]?.label || ''}</h2>
+      <p class="text-xs text-slate-500">${dateStr} · ${timeStr}</p>
+    </div>
+    <div class="search-box">
+      <i data-lucide="search" class="search-icon w-4 h-4"></i>
+      <input type="text" id="searchInput" placeholder="Buscar por nombre, DNI o patente..." value="${searchQuery}" autocomplete="off">
+    </div>
+    <div class="flex items-center gap-3 ml-auto">
+      <div class="bell-btn glass-light" data-action="toggleNotif" id="bellBtn">
+        <i data-lucide="bell" class="w-5 h-5 text-slate-300"></i>
+        ${alerts.length > 0 ? `<div class="bell-badge">${alerts.length}</div>` : ''}
+      </div>
+    </div>
+  `;
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    searchQuery = e.target.value.toLowerCase();
+    renderMain();
+    lucide.createIcons();
+  });
+}
+
+// =============================================
+//  RENDERING - STATS
+// =============================================
+function renderStats() {
+  const s = getStats();
+  return `
+    <div class="flex gap-5 mb-8 flex-wrap fade-in">
+      <div class="stat-card glass-card flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600/30 to-purple-600/30 flex items-center justify-center border border-violet-500/20">
+          <i data-lucide="file-text" class="w-5 h-5 text-violet-400"></i>
+        </div>
+        <div>
+          <div class="stat-number text-white">${s.total}</div>
+          <div class="text-xs text-slate-500 font-medium">Total Documentos</div>
+        </div>
+      </div>
+      <div class="stat-card glass-card flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600/30 to-green-600/30 flex items-center justify-center border border-emerald-500/20">
+          <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+        </div>
+        <div>
+          <div class="stat-number text-emerald-400">${s.valid}</div>
+          <div class="text-xs text-slate-500 font-medium">Vigentes</div>
+        </div>
+      </div>
+      <div class="stat-card glass-card flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-600/30 to-yellow-600/30 flex items-center justify-center border border-amber-500/20">
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400"></i>
+        </div>
+        <div>
+          <div class="stat-number text-amber-400">${s.warning}</div>
+          <div class="text-xs text-slate-500 font-medium">Por Vencer</div>
+        </div>
+      </div>
+      <div class="stat-card glass-card flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-600/30 to-rose-600/30 flex items-center justify-center border border-red-500/20">
+          <i data-lucide="x-circle" class="w-5 h-5 text-red-400"></i>
+        </div>
+        <div>
+          <div class="stat-number text-red-400">${s.expired}</div>
+          <div class="text-xs text-slate-500 font-medium">Vencidos</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// =============================================
+//  RENDERING - ENTITIES
+// =============================================
+function renderEntity(cat, entity, ei) {
+  const meta = CAT_META[cat];
+  const key = `${cat}-${ei}`;
+  const isOpen = expandedEntities[key];
+  let expiredCount = 0, warningCount = 0;
+  entity.documentos.forEach(d => { const s = docStatus(d); if(s==='expired') expiredCount++; if(s==='warning') warningCount++; });
+
+  // grid now has 7 cols: dot | nombre | vencimiento | estado | aviso | renovar | delete
+  const docsHtml = entity.documentos.map((doc, di) => {
+    const s = docStatus(doc);
+    const days = daysDiff(doc.vencimiento);
+    return `
+      <div class="doc-row" id="doc-${cat}-${ei}-${di}" style="grid-template-columns: 8px 1.5fr 1fr 100px 90px 80px 32px;">
+        <div class="status-dot status-${s}"></div>
+        <div><div class="text-sm font-medium text-slate-200">${doc.nombre}</div></div>
+        <div class="text-sm text-slate-400">${formatDate(doc.vencimiento)}</div>
+        <div class="text-xs font-semibold ${s==='expired'?'text-red-400':s==='warning'?'text-amber-400':'text-emerald-400'}">${formatDays(days)}</div>
+        <div class="flex items-center gap-1">
+          <button class="btn-config" data-action="config" data-cat="${cat}" data-ei="${ei}" data-di="${di}" title="Configurar alerta">
+            <i data-lucide="settings" class="w-3.5 h-3.5 pointer-events-none"></i>
+          </button>
+          <span class="text-[11px] text-slate-600">${doc.diasAviso}d</span>
+        </div>
+        <button class="btn-renew" data-action="renew" data-cat="${cat}" data-ei="${ei}" data-di="${di}">
+          <i data-lucide="refresh-cw" class="w-3 h-3 inline mr-1 pointer-events-none"></i>Renovar
+        </button>
+        <button class="btn-del-doc" data-action="deleteDoc" data-cat="${cat}" data-ei="${ei}" data-di="${di}" title="Eliminar documento">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
+        </button>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="glass-card mb-4 overflow-hidden fade-in" id="entity-${key}">
+      <div class="entity-header" data-action="toggle" data-key="${key}">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: ${meta.color}22; border: 1px solid ${meta.color}33;">
+            <i data-lucide="${meta.icon}" class="w-5 h-5" style="color: ${meta.color}"></i>
+          </div>
+          <div>
+            <div class="text-sm font-bold text-white">${entity.nombre}</div>
+            <div class="text-xs text-slate-500">${meta.idLabel}: ${entity.identificador} · ${entity.documentos.length} docs</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          ${expiredCount > 0 ? `<span class="text-[11px] font-bold bg-red-500/15 text-red-400 px-2 py-0.5 rounded-full border border-red-500/20">${expiredCount} vencidos</span>` : ''}
+          ${warningCount > 0 ? `<span class="text-[11px] font-bold bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20">${warningCount} por vencer</span>` : ''}
+          <button class="btn-del-entity" data-action="deleteEntity" data-cat="${cat}" data-ei="${ei}" title="Eliminar registro" onclick="event.stopPropagation()">
+            <i data-lucide="trash" class="w-3 h-3 inline pointer-events-none"></i> Eliminar
+          </button>
+          <i data-lucide="${isOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-slate-500 transition-transform"></i>
+        </div>
+      </div>
+      <div class="entity-docs ${isOpen ? 'expanded' : ''}">
+        <div class="px-4 pb-4 pt-1">
+          <div class="doc-row text-[11px] text-slate-600 font-semibold uppercase tracking-wider" style="cursor:default; grid-template-columns: 8px 1.5fr 1fr 100px 90px 80px 32px;">
+            <div></div><div>Documento</div><div>Vencimiento</div><div>Estado</div><div>Aviso</div><div></div><div></div>
+          </div>
+          <div class="divider mb-1"></div>
+          ${docsHtml}
+          <div class="mt-3">
+            <button class="btn-add-doc" data-action="addDoc" data-cat="${cat}" data-ei="${ei}">
+              <i data-lucide="file-plus" class="w-3.5 h-3.5 pointer-events-none"></i> Agregar Documento
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderMain() {
+  const mc = document.getElementById('mainContent');
+  const cats = activeCategory === 'global' ? Object.keys(data) : [activeCategory];
+  let html = renderStats();
+
+  cats.forEach(cat => {
+    const meta = CAT_META[cat];
+    if (!meta) return;
+    let entities = data[cat] || [];
+    if (searchQuery) {
+      entities = entities.filter(e =>
+        e.nombre.toLowerCase().includes(searchQuery) ||
+        e.identificador.toLowerCase().includes(searchQuery)
+      );
+    }
+    if (activeCategory === 'global' || cats.length > 1) {
+      html += `<div class="flex items-center gap-3 mb-4 mt-6">
+        <i data-lucide="${meta.icon}" class="w-4 h-4" style="color:${meta.color}"></i>
+        <h3 class="text-sm font-bold uppercase tracking-widest" style="color:${meta.color}">${meta.label}</h3>
+        <div class="flex-1 h-px" style="background:${meta.color}22"></div>
+      </div>`;
+    }
+    if (entities.length === 0) {
+      html += `<div class="text-center py-8 text-slate-600 text-sm">No se encontraron resultados</div>`;
+    } else {
+      entities.forEach((e, i) => {
+        const realIdx = data[cat].indexOf(e);
+        html += renderEntity(cat, e, realIdx);
+      });
+    }
+    html += `<button class="btn-add mt-2 mb-6" data-action="addEntity" data-cat="${cat}">
+      <i data-lucide="plus" class="w-4 h-4 pointer-events-none"></i> Agregar ${meta.label.slice(0,-1) || 'Entidad'}
+    </button>`;
+  });
+  mc.innerHTML = html;
+}
+
+// =============================================
+//  RENDERING - NOTIFICATIONS
+// =============================================
+function renderNotifications() {
+  const alerts = getAlerts();
+  const expired = alerts.filter(a => a.status === 'expired');
+  const warnings = alerts.filter(a => a.status === 'warning');
+  const np = document.getElementById('notifPanel');
+  np.innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h3 class="text-lg font-bold text-white">Alertas</h3>
+        <p class="text-xs text-slate-500">${alerts.length} documento${alerts.length!==1?'s':''} requiere${alerts.length!==1?'n':''} atención</p>
+      </div>
+      <button class="btn-config" data-action="closeNotif"><i data-lucide="x" class="w-5 h-5 text-slate-400 pointer-events-none"></i></button>
+    </div>
+    ${expired.length > 0 ? `
+      <div class="mb-6">
+        <div class="text-[11px] font-bold text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+          <i data-lucide="alert-octagon" class="w-3.5 h-3.5 pointer-events-none"></i> Vencidos (${expired.length})
+        </div>
+        ${expired.map(a => `
+          <div class="p-3 rounded-xl mb-2 cursor-pointer transition-all hover:bg-red-500/10" style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.12);"
+               data-action="gotoDoc" data-cat="${a.cat}" data-ei="${a.entityIdx}" data-di="${a.docIdx}">
+            <div class="text-sm font-semibold text-red-300">${a.docName}</div>
+            <div class="text-xs text-slate-500">${a.entityName} · ${CAT_META[a.cat].idLabel}: ${a.entityId}</div>
+            <div class="text-xs font-bold text-red-400 mt-1">${formatDays(a.days)} · Venció: ${formatDate(a.vencimiento)}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+    ${warnings.length > 0 ? `
+      <div>
+        <div class="text-[11px] font-bold text-amber-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5 pointer-events-none"></i> Por vencer (${warnings.length})
+        </div>
+        ${warnings.map(a => `
+          <div class="p-3 rounded-xl mb-2 cursor-pointer transition-all hover:bg-amber-500/10" style="background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.12);"
+               data-action="gotoDoc" data-cat="${a.cat}" data-ei="${a.entityIdx}" data-di="${a.docIdx}">
+            <div class="text-sm font-semibold text-amber-300">${a.docName}</div>
+            <div class="text-xs text-slate-500">${a.entityName} · ${CAT_META[a.cat].idLabel}: ${a.entityId}</div>
+            <div class="text-xs font-bold text-amber-400 mt-1">${formatDays(a.days)} · Vence: ${formatDate(a.vencimiento)}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+    ${alerts.length === 0 ? `
+      <div class="text-center py-12">
+        <i data-lucide="check-circle-2" class="w-12 h-12 text-emerald-500 mx-auto mb-3"></i>
+        <div class="text-sm text-slate-400">¡Todo en orden!</div>
+        <div class="text-xs text-slate-600">No hay documentos vencidos o por vencer</div>
+      </div>` : ''}
+  `;
+}
+
+// =============================================
+//  MODALS
+// =============================================
+function openModal(html) {
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  currentModal = null;
+}
+
+function openRenewModal(cat, ei, di) {
+  const doc = data[cat][ei].documentos[di];
+  const entity = data[cat][ei];
+  currentModal = { cat, ei, di };
+  openModal(`
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
+        <i data-lucide="refresh-cw" class="w-5 h-5 text-cyan-400"></i>
+      </div>
+      <div>
+        <h3 class="text-lg font-bold text-white">Renovar Documento</h3>
+        <p class="text-xs text-slate-500">${entity.nombre}</p>
+      </div>
+    </div>
+    <div class="mb-4">
+      <label class="text-xs text-slate-400 block mb-1">Documento</label>
+      <div class="text-sm text-white font-semibold">${doc.nombre}</div>
+    </div>
+    <div class="mb-4">
+      <label class="text-xs text-slate-400 block mb-1">Vencimiento actual</label>
+      <div class="text-sm text-slate-300">${formatDate(doc.vencimiento)}</div>
+    </div>
+    <div class="mb-6">
+      <label class="text-xs text-slate-400 block mb-2">Nueva fecha de vencimiento</label>
+      <input type="date" id="renewDate" class="w-full" value="${doc.vencimiento}">
+    </div>
+    <div class="flex gap-3 justify-end">
+      <button class="btn-ghost" data-action="closeModal">Cancelar</button>
+      <button class="btn-primary" data-action="confirmRenew">Confirmar Renovación</button>
+    </div>
+  `);
+  lucide.createIcons();
+}
+
+function openConfigModal(cat, ei, di) {
+  const doc = data[cat][ei].documentos[di];
+  const entity = data[cat][ei];
+  currentModal = { cat, ei, di };
+  openModal(`
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+        <i data-lucide="settings" class="w-5 h-5 text-amber-400"></i>
+      </div>
+      <div>
+        <h3 class="text-lg font-bold text-white">Configurar Alerta</h3>
+        <p class="text-xs text-slate-500">${entity.nombre} · ${doc.nombre}</p>
+      </div>
+    </div>
+    <div class="mb-6">
+      <label class="text-xs text-slate-400 block mb-2">Días de anticipación para la alerta</label>
+      <input type="number" id="alertDays" class="w-full" value="${doc.diasAviso}" min="1" max="365">
+      <p class="text-[11px] text-slate-600 mt-2">La alerta se activará esta cantidad de días antes del vencimiento.</p>
+    </div>
+    <div class="flex gap-3 justify-end">
+      <button class="btn-ghost" data-action="closeModal">Cancelar</button>
+      <button class="btn-primary" data-action="confirmConfig">Guardar Configuración</button>
+    </div>
+  `);
+  lucide.createIcons();
+}
+
+function openAddEntityModal(cat) {
+  const meta = CAT_META[cat];
+  currentModal = { cat, action: 'addEntity' };
+  openModal(`
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:${meta.color}22;">
+        <i data-lucide="plus" class="w-5 h-5" style="color:${meta.color}"></i>
+      </div>
+      <div>
+        <h3 class="text-lg font-bold text-white">Nuevo ${meta.label === 'Empleados' ? 'Empleado' : meta.label === 'Vehículos' ? 'Vehículo' : 'Maquinaria'}</h3>
+        <p class="text-xs text-slate-500">Se pre-cargarán los documentos estándar</p>
+      </div>
+    </div>
+    <div class="mb-4">
+      <label class="text-xs text-slate-400 block mb-2">Nombre / Descripción</label>
+      <input type="text" id="newEntityName" class="w-full" placeholder="Ej: Juan Pérez">
+    </div>
+    <div class="mb-6">
+      <label class="text-xs text-slate-400 block mb-2">${meta.idLabel}</label>
+      <input type="text" id="newEntityId" class="w-full" placeholder="Ej: 12.345.678">
+    </div>
+    <div class="flex gap-3 justify-end">
+      <button class="btn-ghost" data-action="closeModal">Cancelar</button>
+      <button class="btn-primary" data-action="confirmAddEntity">Agregar</button>
+    </div>
+  `);
+  lucide.createIcons();
+}
+
+function openAddDocModal(cat, ei) {
+  const entity = data[cat][ei];
+  currentModal = { cat, ei, action: 'addDoc' };
+  const nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1);
+  const defDate = nextYear.toISOString().split('T')[0];
+  openModal(`
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
+        <i data-lucide="file-plus" class="w-5 h-5 text-violet-400"></i>
+      </div>
+      <div>
+        <h3 class="text-lg font-bold text-white">Agregar Documento</h3>
+        <p class="text-xs text-slate-500">${entity.nombre}</p>
+      </div>
+    </div>
+    <div class="mb-4">
+      <label class="text-xs text-slate-400 block mb-2">Nombre del Documento</label>
+      <input type="text" id="newDocName" class="w-full" placeholder="Ej: Habilitación Municipal">
+    </div>
+    <div class="mb-4">
+      <label class="text-xs text-slate-400 block mb-2">Fecha de Vencimiento</label>
+      <input type="date" id="newDocDate" class="w-full" value="${defDate}">
+    </div>
+    <div class="mb-6">
+      <label class="text-xs text-slate-400 block mb-2">Días de aviso previo</label>
+      <input type="number" id="newDocDias" class="w-full" value="30" min="1" max="365">
+    </div>
+    <div class="flex gap-3 justify-end">
+      <button class="btn-ghost" data-action="closeModal">Cancelar</button>
+      <button class="btn-primary" data-action="confirmAddDoc">Agregar Documento</button>
+    </div>
+  `);
+  lucide.createIcons();
+}
+
+function renderReviewPanel() {
+  const alerts = getAlerts().filter(a => a.status === 'warning');
+  const panel = document.getElementById('reviewPanel');
+  // sort by days ascending (closest first)
+  const sorted = [...alerts].sort((a,b) => a.days - b.days);
+  panel.innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="clock" class="w-5 h-5 text-amber-400"></i> Próximos a Vencer
+        </h3>
+        <p class="text-xs text-slate-500">${sorted.length} documento${sorted.length!==1?'s':''} dentro del período de alerta</p>
+      </div>
+      <button class="btn-config" data-action="closeReview"><i data-lucide="x" class="w-5 h-5 text-slate-400 pointer-events-none"></i></button>
+    </div>
+    ${sorted.length === 0 ? `
+      <div class="text-center py-16">
+        <i data-lucide="party-popper" class="w-12 h-12 text-emerald-500 mx-auto mb-3"></i>
+        <div class="text-sm text-slate-400">¡Ningún documento próximo a vencer!</div>
+      </div>` : sorted.map(a => {
+        const diasAviso = data[a.cat][a.entityIdx]?.documentos[a.docIdx]?.diasAviso || 30;
+        const pct = diasAviso > 0 ? Math.round((1 - a.days / diasAviso) * 100) : 100;
+        return `
+        <div class="p-4 rounded-xl mb-3 cursor-pointer transition-all hover:scale-[1.01]"
+             style="background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.15);"
+             data-action="gotoDoc" data-cat="${a.cat}" data-ei="${a.entityIdx}" data-di="${a.docIdx}">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <div class="text-sm font-semibold text-amber-300">${a.docName}</div>
+              <div class="text-xs text-slate-500">${a.entityName} · ${CAT_META[a.cat].idLabel}: ${a.entityId}</div>
+            </div>
+            <span class="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">${a.days}d</span>
+          </div>
+          <div class="text-xs text-slate-500 mb-2">Vence: ${formatDate(a.vencimiento)}</div>
+          <div class="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+            <div class="h-full rounded-full transition-all" style="width:${Math.min(pct,100)}%; background: linear-gradient(90deg, #f59e0b, #ef4444);"></div>
+          </div>
+        </div>`;
+      }).join('')}
+  `;
+  lucide.createIcons();
+}
+
+// =============================================
+//  TOAST
+// =============================================
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  const iconMap = { success: 'check-circle', info: 'info', warning: 'alert-triangle', error: 'x-circle' };
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `<i data-lucide="${iconMap[type]}" class="w-4 h-4 flex-shrink-0"></i> ${message}`;
+  container.appendChild(toast);
+  lucide.createIcons();
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 3500);
+}
+
+// =============================================
+//  EVENT DELEGATION
+// =============================================
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+
+  if (action === 'nav') {
+    activeCategory = el.dataset.cat;
+    searchQuery = '';
+    renderAll();
+  }
+  else if (action === 'toggle') {
+    const key = el.dataset.key;
+    expandedEntities[key] = !expandedEntities[key];
+    renderMain();
+    lucide.createIcons();
+  }
+  else if (action === 'renew') {
+    openRenewModal(el.dataset.cat, +el.dataset.ei, +el.dataset.di);
+  }
+  else if (action === 'config') {
+    openConfigModal(el.dataset.cat, +el.dataset.ei, +el.dataset.di);
+  }
+  else if (action === 'confirmRenew') {
+    const dateVal = document.getElementById('renewDate').value;
+    if (!dateVal) { showToast('Seleccione una fecha válida', 'warning'); return; }
+    const { cat, ei, di } = currentModal;
+    data[cat][ei].documentos[di].vencimiento = dateVal;
+    saveData(); closeModal(); renderAll();
+    showToast('Documento renovado exitosamente', 'success');
+  }
+  else if (action === 'confirmConfig') {
+    const days = parseInt(document.getElementById('alertDays').value);
+    if (!days || days < 1) { showToast('Ingrese un valor válido', 'warning'); return; }
+    const { cat, ei, di } = currentModal;
+    data[cat][ei].documentos[di].diasAviso = days;
+    saveData(); closeModal(); renderAll();
+    showToast('Configuración de alerta actualizada', 'info');
+  }
+  else if (action === 'confirmAddEntity') {
+    const name = document.getElementById('newEntityName').value.trim();
+    const id = document.getElementById('newEntityId').value.trim();
+    if (!name || !id) { showToast('Complete todos los campos', 'warning'); return; }
+    const { cat } = currentModal;
+    const defaultDocs = {
+      empleados: ['DNI','ART','Examen Psicofísico','Entrega de EPP','Capacitación de Seguridad','Seguro de Vida'],
+      vehiculos: ['Cédula Verde','VTV / RTO','Póliza de Seguro','Comprobante de Pago Patente','LINTI'],
+      maquinaria: ['R.U.T.A.','Permiso de Carga Peligrosa','Cert. Pesos y Dimensiones','Carnet de Maquinista']
+    };
+    const oneYear = new Date(); oneYear.setFullYear(oneYear.getFullYear() + 1);
+    const defaultDate = oneYear.toISOString().split('T')[0];
+    data[cat].push({
+      nombre: name, identificador: id,
+      documentos: (defaultDocs[cat] || []).map(n => ({ nombre: n, vencimiento: defaultDate, diasAviso: 30 }))
+    });
+    saveData(); closeModal(); renderAll();
+    showToast(`${CAT_META[cat].label.slice(0,-1)} agregado/a exitosamente`, 'success');
+  }
+  else if (action === 'closeModal') { closeModal(); }
+  else if (action === 'toggleNotif') {
+    const panel = document.getElementById('notifPanel');
+    const overlay = document.getElementById('notifOverlay');
+    const isOpen = panel.classList.contains('open');
+    if (isOpen) {
+      panel.classList.remove('open'); overlay.classList.remove('open');
+    } else {
+      renderNotifications(); lucide.createIcons();
+      panel.classList.add('open'); overlay.classList.add('open');
+    }
+  }
+  else if (action === 'closeNotif') {
+    document.getElementById('notifPanel').classList.remove('open');
+    document.getElementById('notifOverlay').classList.remove('open');
+  }
+  else if (action === 'gotoDoc') {
+    const cat = el.dataset.cat, ei = el.dataset.ei, di = el.dataset.di;
+    document.getElementById('notifPanel').classList.remove('open');
+    document.getElementById('reviewPanel').classList.remove('open');
+    document.getElementById('notifOverlay').classList.remove('open');
+    activeCategory = cat;
+    expandedEntities[`${cat}-${ei}`] = true;
+    searchQuery = '';
+    renderAll();
+    setTimeout(() => {
+      const target = document.getElementById(`doc-${cat}-${ei}-${di}`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.style.background = 'rgba(6,182,212,0.15)';
+        setTimeout(() => target.style.background = '', 2000);
+      }
+    }, 150);
+  }
+  else if (action === 'reset') {
+    if (confirm('¿Restaurar todos los datos a los valores iniciales? Se perderán los cambios.')) {
+      data = JSON.parse(JSON.stringify(RECURSOS_INICIALES));
+      expandedEntities = {};
+      saveData(); renderAll();
+      showToast('Datos restaurados correctamente', 'info');
+    }
+  }
+  else if (action === 'addEntity') {
+    openAddEntityModal(el.dataset.cat);
+  }
+  else if (action === 'addDoc') {
+    openAddDocModal(el.dataset.cat, +el.dataset.ei);
+  }
+  else if (action === 'confirmAddDoc') {
+    const name = document.getElementById('newDocName').value.trim();
+    const date = document.getElementById('newDocDate').value;
+    const days = parseInt(document.getElementById('newDocDias').value);
+    if (!name) { showToast('Ingrese el nombre del documento', 'warning'); return; }
+    if (!date) { showToast('Ingrese una fecha válida', 'warning'); return; }
+    const { cat, ei } = currentModal;
+    data[cat][ei].documentos.push({ nombre: name, vencimiento: date, diasAviso: days || 30 });
+    expandedEntities[`${cat}-${ei}`] = true;
+    saveData(); closeModal(); renderAll();
+    showToast('Documento agregado exitosamente', 'success');
+  }
+  else if (action === 'deleteDoc') {
+    const cat = el.dataset.cat, ei = +el.dataset.ei, di = +el.dataset.di;
+    const doc = data[cat][ei].documentos[di];
+    if (confirm(`¿Eliminar el documento "${doc.nombre}" de ${data[cat][ei].nombre}?`)) {
+      data[cat][ei].documentos.splice(di, 1);
+      expandedEntities[`${cat}-${ei}`] = true;
+      saveData(); renderAll();
+      showToast('Documento eliminado', 'info');
+    }
+  }
+  else if (action === 'deleteEntity') {
+    const cat = el.dataset.cat, ei = +el.dataset.ei;
+    const entity = data[cat][ei];
+    if (confirm(`¿Eliminar "${entity.nombre}" y todos sus documentos? Esta acción no se puede deshacer.`)) {
+      data[cat].splice(ei, 1);
+      delete expandedEntities[`${cat}-${ei}`];
+      saveData(); renderAll();
+      showToast(`${entity.nombre} eliminado correctamente`, 'warning');
+    }
+  }
+  else if (action === 'openReview') {
+    const panel = document.getElementById('reviewPanel');
+    const overlay = document.getElementById('notifOverlay');
+    renderReviewPanel();
+    panel.classList.add('open');
+    overlay.classList.add('open');
+  }
+  else if (action === 'closeReview') {
+    document.getElementById('reviewPanel').classList.remove('open');
+    document.getElementById('notifOverlay').classList.remove('open');
+  }
+});
+
+document.getElementById('notifOverlay').addEventListener('click', () => {
+  document.getElementById('notifPanel').classList.remove('open');
+  document.getElementById('reviewPanel').classList.remove('open');
+  document.getElementById('notifOverlay').classList.remove('open');
+});
+
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+});
+
+// =============================================
+//  RENDER ALL
+// =============================================
+function renderAll() {
+  renderSidebar();
+  renderTopbar();
+  renderMain();
+  lucide.createIcons();
+}
+
+// =============================================
+//  INIT
+// =============================================
+function init() {
+  loadData();
+  renderAll();
+  setInterval(() => {
+    renderTopbar();
+    lucide.createIcons();
+  }, 60000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
