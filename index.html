@@ -636,7 +636,7 @@ function renderEntity(cat, entity, ei) {
         <div class="flex items-center gap-2">
           ${expiredCount > 0 ? `<span class="text-[11px] font-bold bg-red-500/15 text-red-400 px-2 py-0.5 rounded-full border border-red-500/20">${expiredCount} vencidos</span>` : ''}
           ${warningCount > 0 ? `<span class="text-[11px] font-bold bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20">${warningCount} por vencer</span>` : ''}
-          <button class="btn-del-entity" data-action="deleteEntity" data-cat="${cat}" data-ei="${ei}" title="Eliminar registro" onclick="event.stopPropagation()">
+          <button class="btn-del-entity" data-action="deleteEntity" data-cat="${cat}" data-ei="${ei}" title="Eliminar registro">
             <i data-lucide="trash" class="w-3 h-3 inline pointer-events-none"></i> Eliminar
           </button>
           <i data-lucide="${isOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-slate-500 transition-transform"></i>
